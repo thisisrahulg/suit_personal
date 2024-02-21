@@ -12,6 +12,28 @@ connection = mysql.connector.connect(
 
 cursor = connection.cursor()
 
+
+
+img_type_dict = {
+    0:'Normal',
+    1:'starcal1',
+    2:'starcal2',
+    3:'offpoint',
+    4:'engg4',
+    5:'engg5',
+    6:'engg6',
+    7:'engg7',
+    8:'eeprom',
+    9:'engg9',
+    10:'led355',
+    11:'led255',
+    12:'closedak',
+    13:'opendark',
+    14:'openbias',
+    15:'closebias'
+}
+
+
 def get_table_info(database_name):
 
     query = f"""
@@ -37,7 +59,7 @@ def get_table_info(database_name):
 
     return table_columns
 
-def queryData(database_name, timestart, timestop, other_conditions):
+def queryData(timestart, timestop, other_conditions,database_name='suitDatabase'):
     table_columns = get_table_info(database_name)
     join_clauses = []
     joined_tables = set()
@@ -47,7 +69,6 @@ def queryData(database_name, timestart, timestop, other_conditions):
     if 'quickLookTable' in table_columns:
         if 'quickLookTable' not in joined_tables:
             joined_tables.add('quickLookTable')
-#        selected_columns.append("quickLookTable.T_OBS")
         selected_columns.append("quickLookTable.F_NAME")
     #print(selected_columns)
     #input()
@@ -62,6 +83,8 @@ def queryData(database_name, timestart, timestop, other_conditions):
                 break
         if operator == 'contains':
             where_clause += f"{param.strip()} LIKE '%{value.strip()}%' AND "
+        elif operator == 'between':
+            where_clause += f"{param.strip()} BETWEEN '{value.split(',')[0].strip()}' AND '{value.split(',')[1].strip()}' AND "
         else:
             where_clause += f"{param.strip()} {operator.strip()} '{value.strip()}' AND "
     
@@ -71,7 +94,7 @@ def queryData(database_name, timestart, timestop, other_conditions):
     
     where_clause = f"{where_clause} AND {time_where_clause}" if where_clause else time_where_clause
     query = f"SELECT {', '.join(selected_columns)} FROM quickLookTable {' '.join(join_clauses)} WHERE {where_clause};"
-    #print("Generated SQL Query:", query)
+    print("Generated SQL Query:", query)
     cursor = connection.cursor()
     cursor.execute(query)
     rows = cursor.fetchall()
@@ -82,6 +105,7 @@ def queryData(database_name, timestart, timestop, other_conditions):
 
 def suitsearch():
     parser = argparse.ArgumentParser(description='SUIT database search script')
+    parser.add_argument('level',type=float,help='Level of the file.[0.5, 1.0]"')
     parser.add_argument('startTime',help='starttime. Format = "%Y-%m-%d %H:%M:%S"')
     parser.add_argument('endTime',help='endtime. Format = "%Y-%m-%d %H:%M:%S"')
     parser.add_argument('conditions',nargs='+',help='All other conditions. Give as array for multiple parameters. Eg: [ param1 = value1, param2 >= value2, param3 contains value3]')
@@ -89,9 +113,29 @@ def suitsearch():
     
 
     database_name = 'suitDatabase' 
-    output = queryData(database_name, args.startTime, args.endTime,args.conditions)
-    print(output)
-    return output
+    output = queryData(args.startTime,args.endTime,args.conditions)
+    fullPaths = []
+    if output:
+        for outFile in output:
+            year,month,day = outFile.split('_')[5].split('T')[0].split('-')
+            imgType = int(outFile.split('_')[6][0])
+            imgSize = int(outFile.split('_')[6][3])
+            if imgType == 0:
+                if imgSize == 1:
+                    imtype = 'normal_4k'
+                elif imgSize == 2:
+                    imtype = 'normal_2k'
+                elif imgSize  == 3:
+                    imtype = 'normal_roi'
+            else:
+                imtype = img_type_dict[imgType]
+            if args.level == 0.5:
+               fullPath = f'/scratch/suit_data/level0fits/{year}/{month}/{day}/{imtype}/{outFile}' 
+            if args.level == 1.0:
+               fullPath = f'/scratch/suit_data/level1.5fits/{year}/{month}/{day}/{imgtype}/{outFile}'
+            fullPaths.append(fullPath)
+    print(fullPaths)
+    return fullPaths
 
 
 if __name__ == '__main__':
