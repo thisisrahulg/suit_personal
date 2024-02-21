@@ -59,7 +59,7 @@ def get_table_info(database_name):
 
     return table_columns
 
-def queryData(timestart, timestop, other_conditions,database_name='suitDatabase'):
+def queryData(level,timestart, timestop, other_conditions,database_name='suitDatabase'):
     table_columns = get_table_info(database_name)
     join_clauses = []
     joined_tables = set()
@@ -94,26 +94,14 @@ def queryData(timestart, timestop, other_conditions,database_name='suitDatabase'
     
     where_clause = f"{where_clause} AND {time_where_clause}" if where_clause else time_where_clause
     query = f"SELECT {', '.join(selected_columns)} FROM quickLookTable {' '.join(join_clauses)} WHERE {where_clause};"
-    print("Generated SQL Query:", query)
+    #print("Generated SQL Query:", query)
     cursor = connection.cursor()
     cursor.execute(query)
     rows = cursor.fetchall()
     cursor.close()
     connection.close()
-
-    return [row[0] for row in rows]
-
-def suitsearch():
-    parser = argparse.ArgumentParser(description='SUIT database search script')
-    parser.add_argument('level',type=float,help='Level of the file.[0.5, 1.0]"')
-    parser.add_argument('startTime',help='starttime. Format = "%Y-%m-%d %H:%M:%S"')
-    parser.add_argument('endTime',help='endtime. Format = "%Y-%m-%d %H:%M:%S"')
-    parser.add_argument('conditions',nargs='+',help='All other conditions. Give as array for multiple parameters. Eg: [ param1 = value1, param2 >= value2, param3 contains value3]')
-    args =  parser.parse_args()
     
-
-    database_name = 'suitDatabase' 
-    output = queryData(args.startTime,args.endTime,args.conditions)
+    output = [row[0] for row in rows]
     fullPaths = []
     if output:
         for outFile in output:
@@ -129,12 +117,23 @@ def suitsearch():
                     imtype = 'normal_roi'
             else:
                 imtype = img_type_dict[imgType]
-            if args.level == 0.5:
+            if level == 0.5:
                fullPath = f'/scratch/suit_data/level0fits/{year}/{month}/{day}/{imtype}/{outFile}' 
-            if args.level == 1.0:
+            if level == 1.0:
                fullPath = f'/scratch/suit_data/level1.5fits/{year}/{month}/{day}/{imgtype}/{outFile}'
             fullPaths.append(fullPath)
-    print(fullPaths)
+    return fullPaths
+
+def suitsearch():
+    parser = argparse.ArgumentParser(description='SUIT database search script')
+    parser.add_argument('level',type=float,help='Level of the file.[0.5, 1.0]"')
+    parser.add_argument('startTime',help='starttime. Format = "%Y-%m-%d %H:%M:%S"')
+    parser.add_argument('endTime',help='endtime. Format = "%Y-%m-%d %H:%M:%S"')
+    parser.add_argument('conditions',nargs='+',help='All other conditions. Give as array for multiple parameters. Eg: [ param1 = value1, param2 >= value2, param3 contains value3]')
+    args =  parser.parse_args()
+    
+    fullPaths = queryData(args.level,args.startTime,args.endTime,args.conditions)
+   
     return fullPaths
 
 
