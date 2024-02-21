@@ -5,8 +5,9 @@ import sys
 import os,argparse
 from astropy.io import fits
 from datetime import datetime
+from conn import *
 
-dbConnection = sqlite3.connect('limbfit_database.db')
+#dbConnection = sqlite3.connect('limbfit_database.db')
 dbCursor = dbConnection.cursor()
 
 def findClosestTime(targetTime):
@@ -17,10 +18,9 @@ def findClosestTime(targetTime):
 
     if not all_records:
         return None
-
     target_datetime = datetime.strptime(targetTime, '%Y-%m-%dT%H.%M.%S.%f')
-    closestRecord = min(all_records, key=lambda record: abs(target_datetime - datetime.strptime(record[1], '%Y-%m-%dT%H.%M.%S.%f')))
-
+    closestRecord = min(all_records, key=lambda record: abs(target_datetime - record[1]))
+    print(closestRecord)
     return closestRecord
 
 def addSunCentre(inFile):
@@ -31,7 +31,7 @@ def addSunCentre(inFile):
     closestRecord = findClosestTime(time)
 
     if closestRecord:
-        t, xVal, yVal, rVal = closestRecord[1], closestRecord[3], closestRecord[5], closestRecord[7]
+        t, xVal, yVal, rVal = closestRecord[1].strftime("%Y-%m-%dT%H:%M:%S"), closestRecord[2], closestRecord[4], closestRecord[6]
         print(t, xVal, yVal, rVal)
 
         with fits.open(inFile, mode='update') as inFitsFile:
@@ -55,7 +55,7 @@ def main():
     args = parser.parse_args()
 
     inFiles = os.listdir(args.inFolder)
-    inF = [os.path.join(args.inFolder,f) for f in inFiles]
+    inF = [os.path.join(args.inFolder,f) for f in inFiles if f.endswith('.fits')]
 
     for inFits in inF:
         addSunCentre(inFits)
